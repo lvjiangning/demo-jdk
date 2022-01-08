@@ -1,4 +1,4 @@
-package org.itstack.demo;
+package com.lv.jdk8;
 
 @Hint("hint1")
 @Hint("hint2")

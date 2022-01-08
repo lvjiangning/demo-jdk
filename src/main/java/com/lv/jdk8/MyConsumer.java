@@ -1,6 +1,4 @@
-package org.itstack.demo;
-
-import java.util.function.Consumer;
+package com.lv.jdk8;
 
 public class MyConsumer<T> {
 

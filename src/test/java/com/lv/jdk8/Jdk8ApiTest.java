@@ -1,11 +1,9 @@
-package org.itstack.demo;
+package com.lv.jdk8;
 
 import com.alibaba.fastjson.JSON;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-
 
 import java.time.*;
 import java.time.format.DateTimeFormatter;
@@ -14,7 +12,10 @@ import java.time.temporal.ChronoField;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
-import java.util.function.*;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 @DisplayName("jdk8.0特性测试")

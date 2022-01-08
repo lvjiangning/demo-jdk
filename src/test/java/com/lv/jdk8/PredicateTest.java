@@ -1,4 +1,4 @@
-package org.itstack.demo;
+package com.lv.jdk8;
 
 import java.util.ArrayList;
 import java.util.function.Predicate;

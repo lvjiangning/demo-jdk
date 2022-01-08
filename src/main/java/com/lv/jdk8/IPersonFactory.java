@@ -1,4 +1,4 @@
-package org.itstack.demo;
+package com.lv.jdk8;
 
 @FunctionalInterface
 public interface IPersonFactory<P extends Person> {
