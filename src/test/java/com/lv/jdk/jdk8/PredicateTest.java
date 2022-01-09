@@ -1,4 +1,4 @@
-package com.lv.jdk8;
+package com.lv.jdk.jdk8;
 
 import java.util.ArrayList;
 import java.util.function.Predicate;

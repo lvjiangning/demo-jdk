@@ -1,4 +1,4 @@
-package com.lv.jdk8;
+package com.lv.jdk.jdk8;
 
 public class Something {
     public String startsWith(String s) {

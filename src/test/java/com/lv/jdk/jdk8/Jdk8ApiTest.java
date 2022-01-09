@@ -1,4 +1,4 @@
-package com.lv.jdk8;
+package com.lv.jdk.jdk8;
 
 import com.alibaba.fastjson.JSON;
 import org.junit.jupiter.api.BeforeEach;
