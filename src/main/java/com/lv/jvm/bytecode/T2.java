@@ -1,4 +1,4 @@
-package com.lv.jvm.c1;
+package com.lv.jvm.bytecode;
 
 /**
  * 查看字节码信息
