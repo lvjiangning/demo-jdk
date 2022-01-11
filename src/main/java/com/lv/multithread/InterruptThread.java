@@ -4,6 +4,13 @@ import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * 线程的打断
+ *      * public void interrupt()            //t.interrupt() 打断t线程（设置t线程某给标志位f=true，并不是打断线程的运行）
+ *      * public boolean isInterrupted()     //t.isInterrupted() 查询打断标志位是否被设置（是不是曾经被打断过）
+ *      * public static boolean interrupted()//Thread.interrupted() 查看“当前”线程是否被打断，如果被打断，恢复标志位
+ * 1、线程正在争夺synchronized锁时，竞争线程不会中断,必须获取锁后才会有中断信号
+ * 2、占有synchronized锁时，interrupt命令会使线程中断
+ * 3、InterruptedException 异常会导致interrupt标志复位
+ * 4、使用ReentrantLock重入锁，可以用interrupt打断，用lockInterruptibly 判断是否有打断信号
  */
 public class InterruptThread {
     //对象
@@ -11,10 +18,10 @@ public class InterruptThread {
 
     public static void main(String[] args) throws Exception {
 
-        test5();
+        test4();
     }
     /**
-     *  线程在竞争synchronized锁时，竞争线程不会中断,
+     *  线程正在等待synchronized锁时，竞争线程不会中断,必须获取锁后才会有中断信号
      */
     public static  void  test4() throws InterruptedException {
         Thread t1 = new Thread(()-> {
@@ -48,15 +55,15 @@ public class InterruptThread {
 
         t1.start(); //t1 先启动
         System.out.println("t1 thread start");
-        Thread.sleep(1000); //间隔1秒后线程2启动，保证线程1占用锁
+        Thread.sleep(500); //间隔1秒后线程2启动，保证线程1占用锁
         t2.start(); //t2 启动
-        Thread.sleep(1000); //间隔1秒后线程2发出中断信号
+        Thread.sleep(500); //间隔1秒后线程2发出中断信号
         t2.interrupt();
 
     }
 
     /**
-     *  synchronized锁时，线程占有锁时线程会中断
+     *  占有synchronized锁时，interrupt命令会使线程中断
      */
     public static  void  test3() throws InterruptedException {
         Thread t3 = new Thread(()-> {
@@ -121,7 +128,7 @@ public class InterruptThread {
         Thread.sleep(2000);
         t2.interrupt();
     }
-    //使用重入锁，可以用interrupt打断
+    //使用ReentrantLock重入锁，可以用interrupt打断，用lockInterruptibly 判断是否有打断信号
     private static ReentrantLock lock = new ReentrantLock();
     public static void test5() throws Exception{
         Thread t1 = new Thread(()-> {

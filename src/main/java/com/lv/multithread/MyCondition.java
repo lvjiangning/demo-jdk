@@ -31,7 +31,7 @@ public class MyCondition {
             public void run() {
                 consume();
             }
-            volatile boolean flag=true; //线程可见性，禁止重排序
+            volatile boolean flag=true; //线程可见性，禁止重排序，通过jvm内存屏障
             private void consume() {
                 while(flag){
                     lock.lock();

@@ -3,6 +3,9 @@ package com.lv.multithread;
 import java.util.concurrent.Callable;
 import java.util.concurrent.FutureTask;
 
+/**
+ * 有返回值的线程
+ */
 public class MyCallable implements Callable<String> {
     @Override
     public String call() throws Exception {
