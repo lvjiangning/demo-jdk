@@ -159,7 +159,7 @@ code内的主要属性为:
 
 如果数据在cache line 内，则使用缓存锁，如果超出64字节则使用总线锁，总线索很影响效率
 
-## cache line对齐，伪共享
+## cache line
 
 <img src=".\Image\image-20220109215809297.png" alt="image-20220109215809297" align="left" style="zoom:80%;" />
 
@@ -205,54 +205,15 @@ JVM级别如何规范（JSR133）
 
 ​    **JVM的内存屏障实现是基于硬件屏障做的封装**
 
-> LoadLoad屏障： 对于这样的语句Load1; LoadLoad; Load2，
->
-> ```
-> 在Load2及后续读取操作要读取的数据被访问前，保证Load1要读取的数据被读取完毕。
-> ```
->
-> StoreStore屏障：
->
-> ```
-> 对于这样的语句Store1; StoreStore; Store2，
-> 
-> 在Store2及后续写入操作执行前，保证Store1的写入操作对其它处理器可见。
-> ```
->
-> LoadStore屏障：
->
-> ```text
-> 对于这样的语句Load1; LoadStore; Store2，
-> 
-> 在Store2及后续写入操作被刷出前，保证Load1要读取的数据被读取完毕。
-> ```
->
-> StoreLoad屏障： 对于这样的语句Store1; StoreLoad; Load2，
->
-> ```
->   在Load2及后续所有读取操作执行前，保证Store1的写入对所有处理器可见。
-> ```
+| **内存屏障**    | **说明**                                                    |
+| --------------- | ----------------------------------------------------------- |
+| StoreStore 屏障 | 禁止上面的普通写和下面的 volatile 写重排序。                |
+| StoreLoad 屏障  | 防止上面的 volatile 写与下面可能有的 volatile 读/写重排序。 |
+| LoadLoad 屏障   | 禁止下面所有的普通读操作和上面的 volatile 读重排序。        |
+| LoadStore 屏障  | 禁止下面所有的普通写操作和上面的 volatile 读重排序。        |
 
-## volatile的实现细节
 
-1. 字节码层面 ACC_VOLATILE
 
-2. JVM层面 volatile内存区的读写 都加屏障
-
-   > StoreStoreBarrier
-   >
-   > volatile 写操作
-   >
-   > StoreLoadBarrier
-
-   > LoadLoadBarrier
-   >
-   > volatile 读操作
-   >
-   > LoadStoreBarrier
-
-3. OS和硬件层面 https://blog.csdn.net/qq_26222859/article/details/52235930 hsdis - HotSpot Dis Assembler windows lock 指令实现 |
-   MESI实现
 
 ## synchronized实现细节
 
