@@ -1,4 +1,4 @@
-package com.lv.multithread;
+package com.lv.multithread.basic;
 
 public class MyRunnable implements Runnable {
     @Override

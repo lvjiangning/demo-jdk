@@ -1,4 +1,4 @@
-package com.lv.multithread;
+package com.lv.multithread.basic;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -16,8 +16,8 @@ public class MyCommonFunction {
         //testSleep();
         //testYield();
         //  testJoin();
-       // waitNotifyExample();
-        conditionExample();
+        waitNotifyExample();
+       // conditionExample();
     }
 
     /*Sleep,意思就是睡眠，当前线程暂停一段时间让给别的线程去运行。Sleep是怎么复活的？由你的睡眠时间而定，等睡眠到规定的时间自动复活*/
@@ -99,7 +99,8 @@ public class MyCommonFunction {
     }
 
     /**
-     * wait and notify
+     * wait and notify //要用锁的对象进行操作
+     * wait ：等待时不会释放锁
      */
     public static void waitNotifyExample() {
         ExecutorService executorService = Executors.newCachedThreadPool();
@@ -112,7 +113,7 @@ public class MyCommonFunction {
     public void before() {
         synchronized (object) {
             System.out.println("before");
-            object.notifyAll(); //要用锁的对象进行操作
+//            object.notifyAll(); //要用锁的对象进行操作
         }
     }
 

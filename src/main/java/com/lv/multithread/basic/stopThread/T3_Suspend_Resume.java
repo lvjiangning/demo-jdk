@@ -1,6 +1,6 @@
-package com.lv.multithread;
+package com.lv.multithread.basic.stopThread;
 
-import sun.awt.windows.ThemeReader;
+import com.lv.multithread.SleepUtils;
 
 /**
  * Suspend()暂停线程

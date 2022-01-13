@@ -1,4 +1,4 @@
-package com.lv.multithread;
+package com.lv.multithread.basic;
 
 /**
  * 相对而言，此种方式创建线程没有接口灵活，接口可以多继承

@@ -1,4 +1,4 @@
-package com.lv.multithread;
+package com.lv.multithread.basic.volatile_;
 
 /**
  * 双重检测锁

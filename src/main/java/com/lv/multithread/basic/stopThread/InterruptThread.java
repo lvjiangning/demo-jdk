@@ -1,4 +1,4 @@
-package com.lv.multithread;
+package com.lv.multithread.basic.stopThread;
 
 import java.util.concurrent.locks.ReentrantLock;
 

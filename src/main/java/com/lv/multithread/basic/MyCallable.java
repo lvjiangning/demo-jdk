@@ -1,4 +1,4 @@
-package com.lv.multithread;
+package com.lv.multithread.basic;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.FutureTask;

@@ -1,4 +1,4 @@
-package com.lv.multithread;
+package com.lv.multithread.basic.stopThread;
 
 /**
  * 线程stop:会马上停止线程，并且释放锁，直接干掉容易出现数据不一致问题
