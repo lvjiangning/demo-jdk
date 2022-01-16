@@ -215,24 +215,113 @@ JVM级别如何规范（JSR133）
 
 
 
-## synchronized实现细节
 
-1. 字节码层面 ACC_SYNCHRONIZED monitorenter monitorexit
-2. JVM层面 C C++ 调用了操作系统提供的同步机制
-3. OS和硬件层面 X86 : lock cmpxchg /
-   xxx [https](https://blog.csdn.net/21aspnet/article/details/88571740)[://blog.csdn.net/21aspnet/article/details/](https://blog.csdn.net/21aspnet/article/details/88571740)[88571740](https://blog.csdn.net/21aspnet/article/details/88571740)
+# JVM运行时图解
 
-# JVM指令集
+![image-20220116141826260](.\Image\image-20220116141826260.png)
 
-# JVM运行时整体图解
 
-<img src=".\Image\0082zybply1gc6fz21n8kj30u00wpn5v.jpg" alt="jvm-framework" align="left" style="zoom:80%;" />
 
 > - **线程私有**：程序计数器、虚拟机栈、本地方法区
 > - **线程共享**：堆、方法区, 堆外内存（Java7的永久代或JDK8的元空间、代码缓存）
 > - https://www.pdai.tech/md/java/jvm/java-jvm-struct.html
 
+## PC 
+
+> 程序计数寄存器（Program Counter Register），程序计数器是一块较小的内存空间，可以看作是当前线程所执行的字节码的**行号指示器**
+>
+
+![jvm-pc-counter](.\Image\0082zybply1gc5kmznm1sj31m50u0wph.jpg)
+
+
+
+- **使用PC寄存器存储字节码指令地址有什么用呢？为什么使用PC寄存器记录当前线程的执行地址呢？**
+
+因为CPU需要不停的切换各个线程，这时候切换回来以后，就得知道接着从哪开始继续执行。JVM的字节码解释器就需要通过改变PC寄存器的值来明确下一条应该执行什么样的字节码指令。
+
+- **PC寄存器为什么会被设定为线程私有的？**
+
+多线程在一个特定的时间段内只会执行其中某一个线程方法，CPU会不停的做任务切换，这样必然会导致经常中断或恢复。为了能够准确的记录各个线程正在执行的当前字节码指令地址，所以为每个线程都分配了一个PC寄存器，每个线程都独立计算，不会互相影响。
+
+PC总结
+
+- 它是一块很小的内存空间，几乎可以忽略不计。也是运行速度最快的存储区域
+- 在 JVM 规范中，每个线程都有它自己的程序计数器，是线程私有的，生命周期与线程的生命周期一致
+- 任何时间一个线程都只有一个方法在执行，也就是所谓的**当前方法**。如果当前线程正在执行的是 Java 方法，程序计数器记录的是 JVM 字节码指令地址，如果是执行 native 方法，则是未指定值（undefined）
+- 它是程序控制流的指示器，分支、循环、跳转、异常处理、线程恢复等基础功能都需要依赖这个计数器来完成
+- 字节码解释器工作时就是通过改变这个计数器的值来选取下一条需要执行的字节码指令
+- **它是唯一一个在 JVM 规范中没有规定任何 `OutOfMemoryError` 情况的区域**
+
+JVM Stack
+
+> Java 虚拟机栈(Java Virtual Machine Stacks)，早期也叫 Java 栈。每个线程在创建的时候都会创建一个虚拟机栈，其内部保存一个个的栈帧(Stack Frame），对应着一次次 Java 方法调用，是线程私有的，生命周期和线程一致。
+
+1. Frame - 每个方法对应一个栈帧，每个栈帧中包含四项内容
+   1. Local Variable Table ：局部变量表
+   2. Operand Stack ：操作数栈
+      对于long的处理（store and load），多数虚拟机的实现都是原子的
+      jls 17.7，没必要加volatile
+   3. Dynamic Linking
+      https://blog.csdn.net/qq_41813060/article/details/88379473 
+   4. return address
+      a() -> b()，方法a调用了方法b, b方法的返回值放在什么地方
+
+Heap
+
+Method Area
+
+> 实现方式有两种 
+
+1. Perm Space (<1.8)
+   字符串常量位于PermSpace
+   FGC不会清理
+   大小启动的时候指定，不能变
+2. Meta Space (>=1.8)
+   字符串常量位于堆
+   会触发FGC清理
+   不设定的话，最大就是物理内存
+
+Runtime Constant Pool
+
+> ​	运行时常量池
+
+Native Method Stack
+
+Direct Memory
+
+> JVM可以直接访问的内核空间的内存 (OS 管理的内存)
+>
+> NIO ， 提高效率，实现zero copy
+
+思考：
+
+> 如何证明1.7字符串常量位于Perm，而1.8位于Heap？
+>
+> 提示：结合GC， 一直创建字符串常量，观察堆，和Metaspace
+
 # 常用指令
+
+invoke
+
+1. InvokeStatic
+
+2. InvokeVirtual
+
+   > 自带多态，压栈是谁，就调用是谁 
+
+3. InvokeInterface
+
+4. InovkeSpecial
+   可以直接定位，不需要多态的方法
+   private 方法 ， 构造方法
+
+5. InvokeDynamic
+   JVM最难的指令
+   lambda表达式或者反射或者其他动态语言scala kotlin，或者CGLib ASM，动态产生的class，会用到的指令
+
+# 垃圾回收
+
+ 
 
 # 问题
 
