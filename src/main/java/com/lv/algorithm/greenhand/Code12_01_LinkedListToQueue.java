@@ -5,7 +5,7 @@ import java.util.Queue;
 
 /**
  * 单链表实现队列
- *
+ * 先进先出
  * @author： lvjiangning
  * @Date 2021/12/30 20:51
  */
