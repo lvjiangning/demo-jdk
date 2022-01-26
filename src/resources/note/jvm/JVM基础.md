@@ -4,6 +4,7 @@
 1. 使用方法：File->Open As Binary->选择Class 文件，或者使用NotePad++等
 2. 字节码结构查看IDEA插件：jclasslib
     1. 使用方法：选中文件（编译过的java）->View->Show Bytecode with Jclasslib
+4. jvm博客：https://www.cnblogs.com/kelthuzadx/
 
 # JVM
 
