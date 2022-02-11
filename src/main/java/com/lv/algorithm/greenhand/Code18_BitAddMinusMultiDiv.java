@@ -71,12 +71,12 @@ public class Code18_BitAddMinusMultiDiv {
     }
 
     public static int div(int a, int b) {
-        int x = isNeg(a) ? negNum(a) : a;
-        int y = isNeg(b) ? negNum(b) : b;
-        int res = 0;
+        int x = isNeg(a) ? negNum(a) : a;// 如果被除数为负数，则取反
+        int y = isNeg(b) ? negNum(b) : b;// 如果除数为负数，则取反
+        int res = 0; //结果
         for (int i = 30; i >= 0; i = minus(i, 1)) {
             if ((x >> i) >= y) {
-                res |= (1 << i);
+                res |= (1 << i); //a|=b    相当于     a=a|b
                 x = minus(x, y << i);
             }
         }
