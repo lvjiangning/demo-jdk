@@ -1,157 +1,41 @@
-# 常见垃圾回收器组合参数设定：(1.8)
 
 
+# 调优的概念
 
-<img src=".\Image\c625baa0-dde6-449e-93df-c3a67f2f430f.jpg" align="left" alt="image" style="zoom:100%;" />
+HotSpot参数分类
 
-* -XX:+UseSerialGC = Serial New (DefNew) + Serial Old
-  
-  * 小型程序。默认情况下不会是这种选项，HotSpot会根据计算及配置和JDK版本自动选择收集器
-  
-* -XX:+UseParNewGC = ParNew + SerialOld
-  
-  * 这个组合已经很少用（在某些版本中已经废弃，不推荐使用）
-  
-* -XX:+UseConc<font color=red>(urrent)</font>MarkSweepGC = ParNew + CMS + Serial Old
-
-* -XX:+UseParallelGC = Parallel Scavenge + Parallel Old (1.8默认) 
-
-  ![GC日志详解](.\Image\GC日志详解.png)
-
-* -XX:+UseParallelOldGC = Parallel Scavenge + Parallel Old
-
-  ```
-  GCName GCConfiguration::old_collector() const {
-    if (UseG1GC) {
-      return G1Old;
-    }
-  
-    if (UseConcMarkSweepGC) {
-      return ConcurrentMarkSweep;
-    }
-    // 如果开启UseParallelOldGC则老年代使用ParallelOld，否则使用SerialOld
-    if (UseParallelOldGC) {
-      return ParallelOld;
-    }
-  
-    if (UseZGC) {
-      return Z;
-    }
-  
-    return SerialOld;
-  }
-  ```
-
-  > 关闭【-UseParallelOldGC】使用的GC的组合
-  >
-  > - `+UseParallelGC` = `新生代ParallelScavenge + 老年代ParallelOld`
-  > - `+UseParallelOldGC` = 同上
-  > - `-UseParallelOldGC` = `新生代ParallelScavenge + 老年代SerialOld`
-
-* -XX:-UseParallelOldGC = Parallel Scavenge + SerialOld
-
-* -XX:+UseG1GC = G1
-
-* Linux中没找到默认GC的查看方法，而windows中会打印UseParallelGC 
-  * java +XX:+PrintCommandLineFlags -version
-  * 通过GC的日志来分辨
-
-* Linux下1.8版本默认的垃圾回收器到底是什么？
-
-  * 1.8.0_181 默认（看不出来）Copy MarkCompact
-  * 1.8.0_222 默认 PS + PO
-
-### JVM调优第一步，了解JVM常用命令行参数
-
-* JVM的命令行参数参考：https://docs.oracle.com/javase/8/docs/technotes/tools/unix/java.html
-
-* HotSpot参数分类
-
-  > 标准： - 开头，所有的HotSpot都支持
-  >
-  > 非标准：-X 开头，特定版本HotSpot支持特定命令
-  >
-  > 不稳定：-XX 开头，下个版本可能取消
-
-  java -version
-
-  java -X
-
-  
-
-  试验用程序：
-
-  ```java
-  import java.util.List;
-  import java.util.LinkedList;
-  
-  public class HelloGC {
-    public static void main(String[] args) {
-      System.out.println("HelloGC!");
-      List list = new LinkedList();
-      for(;;) {
-        byte[] b = new byte[1024*1024];
-        list.add(b);
-      }
-    }
-  }
-  ```
-
-  
-
-  1. 区分概念：内存泄漏memory leak，内存溢出out of memory
-  2. java -XX:+PrintCommandLineFlags HelloGC
-  3. java -Xmn10M -Xms40M -Xmx60M -XX:+PrintCommandLineFlags -XX:+PrintGC  HelloGC
-     PrintGCDetails PrintGCTimeStamps PrintGCCauses
-  4. java -XX:+UseConcMarkSweepGC -XX:+PrintCommandLineFlags HelloGC
-  5. java -XX:+PrintFlagsInitial 默认参数值
-  6. java -XX:+PrintFlagsFinal 最终参数值
-  7. java -XX:+PrintFlagsFinal | grep xxx 找到对应的参数
-  8. java -XX:+PrintFlagsFinal -version |grep GC
-
-#  GC日志详解
-
-## GC原因分类
-
-
-
-每种垃圾回收器的日志格式是不同的！
-
-## 1、PS日志格式
-
-![GC日志详解](.\Image\GC日志详解.png)
-
-
-
-> - real时间是指挂钟时间，也就是命令开始执行到结束的时间。这个短时间包括其他进程所占用的时间片，和进程被阻塞时所花费的时间。（单位秒）
-> - user时间是指进程花费在用户模式中的CPU时间，这是唯一真正用于执行进程所花费的时间，其他进程和花费阻塞状态中的时间没有计算在内。
-> - sys时间是指花费在内核模式中的CPU时间，代表在内核中执系统调用所花费的时间，这也是真正由进程使用的CPU时间。（单位秒）
-
-heap dump部分：
-
-```java
-eden space 5632K, 94% used [0x00000000ff980000,0x00000000ffeb3e28,0x00000000fff00000)
-                            后面的内存地址指的是，起始地址，使用空间结束地址，整体空间结束地址
-```
-
-![GCHeapDump](.\Image\GCHeapDump.png)
-
-total = eden + 1个survivor
-
-## 2、CMS日志格式
+> 标准： - 开头，所有的HotSpot都支持
+>
+> 非标准：-X 开头，特定版本HotSpot支持特定命令
+>
+> 不稳定：-XX 开头，下个版本可能取消
 
 ### 调优前的基础概念：
 
-1. 吞吐量：用户代码时间 /（用户代码执行时间 + 垃圾回收时间）
-2. 响应时间：STW越短，响应时间越好
+内存溢出(Out Of Memory，简称OOM)：指应用系统中存在无法回收的内存或使用的内存过多，最终使得程序运行要用到的内存大于能提供的最大内存。
+
+内存泄漏（Memory Leak）：指程序中己动态分配的堆内存由于某种原因程序未释放或无法释放，造成系统内存的浪费，导致程序运行速度减慢甚至系统崩溃等严重后果。
+
+**memory leak会最终会导致out of memory！**
+
+评判 GC 的两个核心指标：
+
+- **延迟（Latency）：** 也可以理解为最大停顿时间，即垃圾收集过程中一次 STW 的最长时间，越短越好，一定程度上可以接受频次的增大，GC 技术的主要发展方向。
+- **吞吐量（Throughput）：** 应用系统的生命周期内，由于 GC 线程会占用 Mutator 当前可用的 CPU 时钟周期，吞吐量即为 Mutator 有效花费的时间占系统总运行时间的百分比，例如系统运行了 100 min，GC 耗时 1 min，则系统吞吐量为 99%，吞吐量优先的收集器可以接受较长的停顿。
+
+目前各大互联网公司的系统基本都更追求低延时，避免一次 GC 停顿的时间过长对用户体验造成损失，衡量指标需要结合一下应用服务的 SLA，主要如下两点来判断：
+
+![img](.\Image\o_200727121011批注 2020-07-27 200945.png)
+
+- 高吞吐量较好，因为这会让应用程序的最终用户感觉只有应用程序线程在做“生产性”工作。直觉上，吞吐量越高程序运行越快。
+- 低延迟较好，因为从最终用户的角度来看不管是 GC 还是其他原因导致一个应用被挂起始终是不好的。这取决于应用程序的类型，**有时候甚至短暂的 200 毫秒暂停都可能打断终端用户体验**。因此，具有低的较大暂停时间是非常重要的，**特别是对于一个交互式应用程序**。
+- 不幸的是”高吞吐量”和”低延迟时间”是一对相互竞争的目标（矛盾）。
+  - 因为如果选择以吞吐量优先，那么**必然需要降低内存回收的执行频率**，但是这样会导致 GC 需要更长的暂停时间来执行内存回收。
+  - 相反的，如果选择以低延迟优先为原则，那么为了降低每次执行内存回收时的暂停时间，也**只能频繁地执行内存回收**，但这又引起了年轻代内存的缩减和导致程序吞吐量的下降。
+- 在设计（或使用） GC 算法时，我们必须确定我们的目标：一个 GC 算法只可能针对两个目标之一（即只专注于较大吞吐量或最小暂停时间），或尝试找到一个二者的折衷。
+- 现在标准：**在最大吞吐量优先的情况下，降低停顿时间**。
 
 所谓调优，首先确定，追求啥？吞吐量优先，还是响应时间优先？还是在满足一定的响应时间的情况下，要求达到多大的吞吐量...
-
-问题：
-
-科学计算，吞吐量。数据挖掘，thrput。吞吐量优先的一般：（PS + PO）
-
-响应时间：网站 GUI API （1.8 G1）
 
 ### 什么是调优？
 
@@ -162,10 +46,11 @@ total = eden + 1个survivor
 ### 调优，从规划开始
 
 * 调优，从业务场景开始，没有业务场景的调优都是耍流氓
-  
+
 * 无监控（压力测试，能看到结果），不调优
 
 * 步骤：
+
   1. 熟悉业务场景（没有最好的垃圾回收器，只有最合适的垃圾回收器）
      1. 响应时间、停顿时间 [CMS G1 ZGC] （需要给用户作响应）
      2. 吞吐量 = 用户时间 /( 用户时间 + GC时间) [PS]
@@ -177,7 +62,7 @@ total = eden + 1个survivor
      1. -Xloggc:/opt/xxx/logs/xxx-xxx-gc-%t.log -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=5 -XX:GCLogFileSize=20M -XX:+PrintGCDetails -XX:+PrintGCDateStamps -XX:+PrintGCCause
      2. 或者每天产生一个日志文件
   7. 观察日志情况
-  
+
 * 案例1：垂直电商，最高每日百万订单，处理订单系统需要什么样的服务器配置？
 
   > 这个问题比较业余，因为很多不同的服务器配置都能支撑(1.5G 16G)
@@ -240,217 +125,292 @@ total = eden + 1个survivor
 4. 如何监控JVM
    1. jstat jvisualvm jprofiler arthas top...
 
-### 解决JVM运行中的问题
-
-#### 一个案例理解常用工具
-
-1. 测试代码：
-
-   ```java
-   package com.mashibing.jvm.gc;
-   
-   import java.math.BigDecimal;
-   import java.util.ArrayList;
-   import java.util.Date;
-   import java.util.List;
-   import java.util.concurrent.ScheduledThreadPoolExecutor;
-   import java.util.concurrent.ThreadPoolExecutor;
-   import java.util.concurrent.TimeUnit;
-   
-   /**
-    * 从数据库中读取信用数据，套用模型，并把结果进行记录和传输
-    */
-   
-   public class T15_FullGC_Problem01 {
-   
-       private static class CardInfo {
-           BigDecimal price = new BigDecimal(0.0);
-           String name = "张三";
-           int age = 5;
-           Date birthdate = new Date();
-   
-           public void m() {}
-       }
-   
-       private static ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(50,
-               new ThreadPoolExecutor.DiscardOldestPolicy());
-   
-       public static void main(String[] args) throws Exception {
-           executor.setMaximumPoolSize(50);
-   
-           for (;;){
-               modelFit();
-               Thread.sleep(100);
-           }
-       }
-   
-       private static void modelFit(){
-           List<CardInfo> taskList = getAllCardInfo();
-           taskList.forEach(info -> {
-               // do something
-               executor.scheduleWithFixedDelay(() -> {
-                   //do sth with info
-                   info.m();
-   
-               }, 2, 3, TimeUnit.SECONDS);
-           });
-       }
-   
-       private static List<CardInfo> getAllCardInfo(){
-           List<CardInfo> taskList = new ArrayList<>();
-   
-           for (int i = 0; i < 100; i++) {
-               CardInfo ci = new CardInfo();
-               taskList.add(ci);
-           }
-   
-           return taskList;
-       }
-   }
-   
-   ```
-
-2. java -Xms10M -Xmx10M -XX:+PrintGC    -XX:+PrintGCDetails -XX:+PrintGCTimeStamps -Xloggc:/usr/gc.log -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/usr/heapdump.hprof   com.lv.jvm.gc.Test
-
-3. 一般是运维团队首先受到报警信息（CPU Memory）
-
-4. top命令观察到问题：内存不断增长 CPU占用率居高不下
-
-5. top -Hp 观察进程中的线程，哪个线程CPU和内存占比高
-
-6. jps定位具体java进程
-   jstack 定位线程状况，重点关注：WAITING BLOCKED
-   eg.
-   waiting on <0x0000000088ca3310> (a java.lang.Object)
-   假如有一个进程中100个线程，很多线程都在waiting on <xx> ，一定要找到是哪个线程持有这把锁
-   怎么找？搜索jstack dump的信息，找<xx> ，看哪个线程持有这把锁RUNNABLE
-   作业：1：写一个死锁程序，用jstack观察 2 ：写一个程序，一个线程持有锁不释放，其他线程等待
-
-7. 为什么阿里规范里规定，线程的名称（尤其是线程池）都要写有意义的名称
-   怎么样自定义线程池里的线程名称？（自定义ThreadFactory）
-
-8. jinfo pid 
-
-9. jstat -gc 动态观察gc情况 / 阅读GC日志发现频繁GC / arthas观察 / jconsole/jvisualVM/ Jprofiler（最好用）
-   jstat -gc 4655 500 : 每个500个毫秒打印GC的情况
-   如果面试官问你是怎么定位OOM问题的？如果你回答用图形界面（错误）
-   1：已经上线的系统不用图形界面用什么？（cmdline arthas）
-   2：图形界面到底用在什么地方？测试！测试的时候进行监控！（压测观察）
-
-10. jmap - histo 4655 | head -20，查找有多少对象产生
-
-11. jmap -dump:format=b,file=xxx pid ：
-
-    线上系统，内存特别大，jmap执行期间会对进程产生很大影响，甚至卡顿（电商不适合）
-    1：设定了参数HeapDump，OOM的时候会自动产生堆转储文件
-    2：<font color='red'>很多服务器备份（高可用），停掉这台服务器对其他服务器不影响</font>
-    3：在线定位(一般小点儿公司用不到)
-
-12. java -Xms20M -Xmx20M -XX:+UseParallelGC -XX:+HeapDumpOnOutOfMemoryError com.mashibing.jvm.gc.T15_FullGC_Problem01
-
-13. 使用MAT / jhat /jvisualvm 进行dump文件分析
-     https://www.cnblogs.com/baihuitestsoftware/articles/6406271.html 
-    jhat -J-mx512M xxx.dump
-    http://192.168.17.11:7000
-    拉到最后：找到对应链接
-    可以使用OQL查找特定问题对象
-    
-14. 找到代码的问题
-
-#### jconsole远程连接
-
-1. 程序启动加入参数：
-
-   > ```shell
-   > java -Djava.rmi.server.hostname=192.168.17.11 -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=11111 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false XXX
-   > ```
-
-2. 如果遭遇 Local host name unknown：XXX的错误，修改/etc/hosts文件，把XXX加入进去
-
-   > ```java
-   > 192.168.17.11 basic localhost localhost.localdomain localhost4 localhost4.localdomain4
-   > ::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
-   > ```
-
-3. 关闭linux防火墙（实战中应该打开对应端口）
-
-   > ```shell
-   > service iptables stop
-   > chkconfig iptables off #永久关闭
-   > ```
-
-4. windows上打开 jconsole远程连接 192.168.17.11:11111
-
-#### jvisualvm远程连接
-
- https://www.cnblogs.com/liugh/p/7620336.html （简单做法）
-
-#### jprofiler (收费)
-
-#### arthas在线排查工具
-
-* 为什么需要在线排查？
-   在生产上我们经常会碰到一些不好排查的问题，例如线程安全问题，用最简单的threaddump或者heapdump不好查到问题原因。为了排查这些问题，有时我们会临时加一些日志，比如在一些关键的函数里打印出入参，然后重新打包发布，如果打了日志还是没找到问题，继续加日志，重新打包发布。对于上线流程复杂而且审核比较严的公司，从改代码到上线需要层层的流转，会大大影响问题排查的进度。 
-* jvm观察jvm信息
-* thread定位线程问题
-* dashboard 观察系统情况
-* heapdump + jhat分析
-* jad反编译
-   动态代理生成类的问题定位
-   第三方的类（观察代码）
-   版本问题（确定自己最新提交的版本是不是被使用）
-* redefine 热替换
-   目前有些限制条件：只能改方法实现（方法已经运行完成），不能改方法名， 不能改属性
-   m() -> mm()
-* sc  - search class
-* watch  - watch method
-* 没有包含的功能：jmap
-
-### GC算法的基础概念
-
-* Card Table
-  由于做YGC时，需要扫描整个OLD区，效率非常低，所以JVM设计了CardTable， 如果一个OLD区CardTable中有对象指向Y区，就将它设为Dirty，下次扫描时，只需要扫描Dirty Card
-  在结构上，Card Table用BitMap来实现
-
-### CMS
-
-#### CMS的问题
-
-1. Memory Fragmentation
-
-   > -XX:+UseCMSCompactAtFullCollection
-   > -XX:CMSFullGCsBeforeCompaction 默认为0 指的是经过多少次FGC才进行压缩
-
-2. Floating Garbage
-
-   > Concurrent Mode Failure
-   > 产生：if the concurrent collector is unable to finish reclaiming the unreachable objects before the tenured generation fills up, or if an allocation cannot be satisfiedwith the available free space blocks in the tenured generation, then theapplication is paused and the collection is completed with all the applicationthreads stopped
-   >
-   > 解决方案：降低触发CMS的阈值
-   >
-   > PromotionFailed
-   >
-   > 解决方案类似，保持老年代有足够的空间
-   >
-   > –XX:CMSInitiatingOccupancyFraction 92% 可以降低这个值，让CMS保持老年代足够的空间
-
-#### CMS日志分析
-
-执行命令：java -Xms20M -Xmx20M -XX:+PrintGCDetails -XX:+UseConcMarkSweepGC com.mashibing.jvm.gc.T15_FullGC_Problem01
-
-[GC (Allocation Failure) [ParNew: 6144K->640K(6144K), 0.0265885 secs] 6585K->2770K(19840K), 0.0268035 secs] [Times: user=0.02 sys=0.00, real=0.02 secs] 
-
-> ParNew：年轻代收集器
->
-> 6144->640：收集前后的对比
->
-> （6144）：整个年轻代容量
->
-> 6585 -> 2770：整个堆的情况
->
-> （19840）：整个堆大小
+#  垃圾回收器使用与配置
 
 
+
+### GC常用参数
+
+* -Xmn -Xms -Xmx -Xss
+  年轻代 最小堆 最大堆 栈空间
+* -XX:+UseTLAB
+  使用TLAB，默认打开
+* -XX:+PrintTLAB
+  打印TLAB的使用情况
+* -XX:TLABSize
+  设置TLAB大小
+* -XX:+DisableExplictGC
+  System.gc()不管用 ，FGC
+* -XX:+PrintGC
+* -XX:+PrintGCDetails
+* -XX:+PrintHeapAtGC
+* -XX:+PrintGCTimeStamps
+* -XX:+PrintGCApplicationConcurrentTime (低)
+  打印应用程序时间
+* -XX:+PrintGCApplicationStoppedTime （低）
+  打印暂停时长
+* -XX:+PrintReferenceGC （重要性低）
+  记录回收了多少种不同引用类型的引用
+* -verbose:class
+  类加载详细过程
+* -XX:+PrintVMOptions
+* -XX:+PrintFlagsFinal  -XX:+PrintFlagsInitial
+  必须会用
+* -Xloggc:opt/log/gc.log
+* -XX:MaxTenuringThreshold
+  升代年龄，最大值15
+* 锁自旋次数 -XX:PreBlockSpin 热点代码检测参数-XX:CompileThreshold 逃逸分析 标量替换 ... 
+  这些不建议设置
+
+### Parallel常用参数
+
+* -XX:SurvivorRatio
+* -XX:PreTenureSizeThreshold
+  大对象到底多大
+* -XX:MaxTenuringThreshold
+* -XX:+ParallelGCThreads
+  并行收集器的线程数，同样适用于CMS，一般设为和CPU核数相同
+* -XX:+UseAdaptiveSizePolicy
+  自动选择各区大小比例
+
+### CMS常用参数
+
+* -XX:+UseConcMarkSweepGC
+* -XX:ParallelCMSThreads
+  CMS线程数量
+* -XX:CMSInitiatingOccupancyFraction
+  使用多少比例的老年代后开始CMS收集，默认是68%(近似值)，如果频繁发生SerialOld卡顿，应该调小，（频繁CMS回收）
+* -XX:+UseCMSCompactAtFullCollection
+  在FGC时进行压缩
+* -XX:CMSFullGCsBeforeCompaction
+  多少次FGC之后进行压缩
+* -XX:+CMSClassUnloadingEnabled
+* -XX:CMSInitiatingPermOccupancyFraction
+  达到什么比例时进行Perm回收
+* GCTimeRatio
+  设置GC时间占用程序运行时间的百分比
+* -XX:MaxGCPauseMillis
+  停顿时间，是一个建议时间，GC会尝试用各种手段达到这个时间，比如减小年轻代
+
+### G1常用参数
+
+* -XX:+UseG1GC
+* -XX:MaxGCPauseMillis
+  建议值，G1会尝试调整Young区的块数来达到这个值
+* -XX:GCPauseIntervalMillis
+  ？GC的间隔时间
+* -XX:+G1HeapRegionSize
+  分区大小，建议逐渐增大该值，1 2 4 8 16 32。
+  随着size增加，垃圾的存活时间更长，GC间隔更长，但每次GC的时间也会更长
+  ZGC做了改进（动态区块大小）
+* G1NewSizePercent
+  新生代最小比例，默认为5%
+* G1MaxNewSizePercent
+  新生代最大比例，默认为60%
+* GCTimeRatio
+  GC时间建议比例，G1会根据这个值调整堆空间
+* ConcGCThreads
+  线程数量
+* InitiatingHeapOccupancyPercent
+  启动G1的堆空间占用比例
+
+# 常见垃圾回收器组合参数设定
+
+
+
+![preview](.\Image\view)
+
+* -XX:+UseSerialGC = Serial New (DefNew) + Serial Old
+  
+  * 小型程序。默认情况下不会是这种选项，HotSpot会根据计算及配置和JDK版本自动选择收集器
+  
+* -XX:+UseParNewGC = ParNew + SerialOld
+  
+  * 这个组合已经很少用（在某些版本中已经废弃，不推荐使用）
+  
+* -XX:+UseConc<font color=red>(urrent)</font>MarkSweepGC = ParNew + CMS + Serial Old
+
+* -XX:+UseParallelGC = Parallel Scavenge + Parallel Old (1.8默认) 
+
+* -XX:+UseParallelOldGC = Parallel Scavenge + Parallel Old
+
+  ```
+  GCName GCConfiguration::old_collector() const {
+    if (UseG1GC) {
+      return G1Old;
+    }
+  
+    if (UseConcMarkSweepGC) {
+      return ConcurrentMarkSweep;
+    }
+    // 如果开启UseParallelOldGC则老年代使用ParallelOld，否则使用SerialOld
+    if (UseParallelOldGC) {
+      return ParallelOld;
+    }
+  
+    if (UseZGC) {
+      return Z;
+    }
+  
+    return SerialOld;
+  }
+  ```
+
+  > 关闭【-UseParallelOldGC】使用的GC的组合
+  >
+  > - `+UseParallelGC` = `新生代ParallelScavenge + 老年代ParallelOld`
+  > - `+UseParallelOldGC` = 同上
+  > - `-UseParallelOldGC` = `新生代ParallelScavenge + 老年代SerialOld`
+
+* -XX:-UseParallelOldGC = Parallel Scavenge + SerialOld
+
+* -XX:+UseG1GC = G1
+
+* Linux下1.8版本默认的垃圾回收器到底是什么？
+
+  * 1.8.0_222 默认 PS + PO
+  
+* 如果你想要最小化地使用内存和并行开销，请选 Serial GC
+
+* 如果你想要最大化应用程序的吞吐量，请选 Parallel GC
+
+* 如果你想要最小化 GC 的中断或停顿时间，请选 CMS GC ,G1
+
+
+
+#  GC日志详解
+
+## 1、GC原因分类
+
+​	Cause 的分类可以看一下 Hotspot 源码：src/share/vm/gc/shared/gcCause.hpp 和 src/share/vm/gc/shared/gcCause.cpp 中。
+
+> ```c++
+> const char* GCCause::to_string(GCCause::Cause cause) {
+>   switch (cause) {
+>     case _java_lang_system_gc:
+>       return "System.gc()";
+> 
+>     case _full_gc_alot:
+>       return "FullGCAlot";
+> 
+>     case _scavenge_alot:
+>       return "ScavengeAlot";
+> 
+>     case _allocation_profiler:
+>       return "Allocation Profiler";
+> 
+>     case _jvmti_force_gc:
+>       return "JvmtiEnv ForceGarbageCollection";
+> 
+>     case _gc_locker:
+>       return "GCLocker Initiated GC";
+> 
+>     case _heap_inspection:
+>       return "Heap Inspection Initiated GC";
+> 
+>     case _heap_dump:
+>       return "Heap Dump Initiated GC";
+> 
+>     case _wb_young_gc:
+>       return "WhiteBox Initiated Young GC";
+> 
+>     case _wb_conc_mark:
+>       return "WhiteBox Initiated Concurrent Mark";
+> 
+>     case _wb_full_gc:
+>       return "WhiteBox Initiated Full GC";
+> 
+>     case _no_gc:
+>       return "No GC";
+> 
+>     case _allocation_failure:
+>       return "Allocation Failure";
+> 
+>     case _tenured_generation_full:
+>       return "Tenured Generation Full";
+> 
+>     case _metadata_GC_threshold:
+>       return "Metadata GC Threshold";
+> 
+>     case _metadata_GC_clear_soft_refs:
+>       return "Metadata GC Clear Soft References";
+> 
+>     case _cms_generation_full:
+>       return "CMS Generation Full";
+> 
+>     case _cms_initial_mark:
+>       return "CMS Initial Mark";
+> 
+>     case _cms_final_remark:
+>       return "CMS Final Remark";
+> 
+>     case _cms_concurrent_mark:
+>       return "CMS Concurrent Mark";
+> 
+>     case _old_generation_expanded_on_last_scavenge:
+>       return "Old Generation Expanded On Last Scavenge";
+> 
+>     case _old_generation_too_full_to_scavenge:
+>       return "Old Generation Too Full To Scavenge";
+> 
+>     case _adaptive_size_policy:
+>       return "Ergonomics";
+> 
+>     case _g1_inc_collection_pause:
+>       return "G1 Evacuation Pause";
+> 
+>     case _g1_humongous_allocation:
+>       return "G1 Humongous Allocation";
+> 
+>     case _dcmd_gc_run:
+>       return "Diagnostic Command";
+> 
+>     case _last_gc_cause:
+>       return "ILLEGAL VALUE - last gc cause - ILLEGAL VALUE";
+> 
+>     default:
+>       return "unknown GCCause";
+>   }
+>   ShouldNotReachHere();
+> }
+> ```
+
+重点关注的GC原因：
+
+- **System.gc()：** 手动触发GC操作。
+- **CMS：** CMS GC 在执行过程中的一些动作，重点关注 CMS Initial Mark 和 CMS Final Remark 两个 STW 阶段。
+- **Promotion Failure（晋升失败）：** Old 区没有足够的空间分配给 Young 区晋升的对象（即使总可用内存足够大）。
+- **Concurrent Mode Failure（并发模式失败）：** CMS GC 运行期间，Old 区预留的空间不足以分配给新的对象，此时收集器会发生退化，严重影响 GC 性能，下面的一个案例即为这种场景。
+- **GCLocker Initiated GC：** 如果线程执行在 JNI 临界区时，刚好需要进行 GC，此时 GC Locker 将会阻止 GC 的发生，同时阻止其他线程进入 JNI 临界区，直到最后一个线程退出临界区时触发一次 GC。
+
+## 2、PS日志格式
+
+Young GC
+
+![img](.\Image\o_200730033925批注 2020-07-30 113800.png)
+
+Full GC
+
+![img](D:\system\custom_code\demo-jdk\src\resources\note\jvm\Image\o_200730033931批注 2020-07-30 113907.png)
+
+> - user ：指的是垃圾收集器花费的所有 CPU 时间 （单位秒）
+> - sys ：花费在等待系统调用或系统事件的时间
+> - real ：GC 从开始到结束的时间，包括其他进程占用时间片的实际时间。
+
+heap dump部分：
+
+```java
+eden space 5632K, 94% used [0x00000000ff980000,0x00000000ffeb3e28,0x00000000fff00000)
+                            后面的内存地址指的是，起始地址，使用空间结束地址，整体空间结束地址
+```
+
+![GCHeapDump](.\Image\GCHeapDump.png)
+
+total = eden + 1个survivor
+
+## 3、CMS日志格式
+
+参考：https://segmentfault.com/a/1190000038160892
 
 ```java
 [GC (CMS Initial Mark) [1 CMS-initial-mark: 8511K(13696K)] 9866K(19840K), 0.0040321 secs] [Times: user=0.01 sys=0.00, real=0.00 secs] 
@@ -483,11 +443,9 @@ total = eden + 1个survivor
 
 
 
-### G1
+## 4、G1日志
 
-1. ▪https://www.oracle.com/technical-resources/articles/java/g1gc.html
-
-#### G1日志详解
+G1日志详解
 
 ```java
 [GC pause (G1 Evacuation Pause) (young) (initial-mark), 0.0015790 secs]
@@ -529,10 +487,6 @@ total = eden + 1个survivor
 76K->3876K(1056768K)] [Times: user=0.07 sys=0.00, real=0.07 secs]
 
 ```
-
-
-
-著作权归https://pdai.tech所有。 链接：https://www.pdai.tech/md/java/jvm/java-jvm-debug-tools-list.html
 
 # Java 调试入门工具
 
@@ -576,7 +530,7 @@ jps原理
 
 更多请参考 [jps - Java Virtual Machine Process Status Tool  (opens new window)](https://docs.oracle.com/javase/1.5.0/docs/tooldocs/share/jps.html)
 
-## jstack
+## jstack ：查看堆栈信息
 
 > jstack是jdk自带的线程堆栈分析工具，使用该命令可以查看或导出 Java 应用程序中线程堆栈信息。
 
@@ -591,7 +545,7 @@ jstack -l 4415 > /usr/local/src/log.log # 输出dump信息到文本用于本地�
 top -Hp pid # 可以查到进程对应的线程，通过线程id(10进制)与上面log文件的nid（16进制）进行匹配检索
 ```
 
-### 查看堆栈信息: jstack pid
+查看堆栈信息: jstack pid
 
 
 
@@ -833,13 +787,40 @@ https://iowiki.com/jdb/jdb_options.html
 java -classpath /opt/taobao/java/lib/sa-jdi.jar sun.jvm.hotspot.CLHSDB
 ```
 
+## MAT 
+
+https://www.jianshu.com/p/97251691af88
+
 # Java 调试进阶工具
 
 ## JConsole : JDK路径下
 
+1. 程序启动加入参数：
+
+   > ```shell
+   > java -Djava.rmi.server.hostname=192.168.17.11 -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=11111 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false XXX
+   > ```
+
+2. 如果遭遇 Local host name unknown：XXX的错误，修改/etc/hosts文件，把XXX加入进去
+
+   > ```java
+   > 192.168.17.11 basic localhost localhost.localdomain localhost4 localhost4.localdomain4
+   > ::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+   > ```
+
+3. 关闭linux防火墙（实战中应该打开对应端口）
+
+   > ```shell
+   > service iptables stop
+   > chkconfig iptables off #永久关闭
+   > ```
+
+4. windows上打开 jconsole远程连接 192.168.17.11:11111
+
 ## VisualVM: JDK路径下
 
-
+> https://www.cnblogs.com/liugh/p/7620336.html
+>
 
 ##  Btrace
 
@@ -1503,7 +1484,9 @@ which is held by "Thread-1"
 
 一个重要的方法是 结合操作系统的各种工具观察系统资源使用状况，以及收集Java线程的DUMP信息，看线程都阻塞在什么方法上，了解原因，才能找到对应的解决方法。
 
-## 4、JVM重要线程
+
+
+###  4、JVM重要线程
 
 JVM运行过程中产生的一些比较重要的线程罗列如下：
 
@@ -1519,7 +1502,7 @@ JVM运行过程中产生的一些比较重要的线程罗列如下：
 | Reference Handler               | JVM在创建main线程后就创建Reference Handler线程，其优先级最高，为10，它主要用于处理引用对象本身（软引用、弱引用、虚引用）的垃圾回收问题 。 |
 | VM Thread                       | 这个线程就比较牛b了，是JVM里面的线程母体，根据hotspot源码（vmThread.hpp）里面的注释，它是一个单个的对象（最原始的线程）会产生或触发所有其他的线程，这个单个的VM线程是会被其他线程所使用来做一些VM操作（如：清扫垃圾等）。 |
 
-# 配置
+# 测试配置
 
  ## tomcat 配置参数
 
@@ -1529,6 +1512,126 @@ JVM运行过程中产生的一些比较重要的线程罗列如下：
 >
 
 # 案例汇总
+
+
+
+## 一个案例理解常用工具
+
+## 
+
+1. ## 测试代码：
+
+   ```java
+   package com.lv.jvm.gc;
+   
+   import java.math.BigDecimal;
+   import java.util.ArrayList;
+   import java.util.Date;
+   import java.util.List;
+   import java.util.concurrent.ScheduledThreadPoolExecutor;
+   import java.util.concurrent.ThreadPoolExecutor;
+   import java.util.concurrent.TimeUnit;
+   
+   /**
+    * 从数据库中读取信用数据，套用模型，并把结果进行记录和传输
+    */
+   
+   public class Test {
+   
+       private static class CardInfo {
+           BigDecimal price = new BigDecimal(0.0);
+           String name = "张三";
+           int age = 5;
+           Date birthdate = new Date();
+   
+           public void m() {}
+       }
+   
+       private static ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(50,
+               new ThreadPoolExecutor.DiscardOldestPolicy());
+   
+       public static void main(String[] args) throws Exception {
+           executor.setMaximumPoolSize(50);
+   
+           for (;;){
+               modelFit();
+               Thread.sleep(100);
+           }
+       }
+   
+       private static void modelFit(){
+           List<CardInfo> taskList = getAllCardInfo();
+           taskList.forEach(info -> {
+               // do something
+               executor.scheduleWithFixedDelay(() -> {
+                   //do sth with info
+                   info.m();
+   
+               }, 2, 3, TimeUnit.SECONDS);
+           });
+       }
+   
+       private static List<CardInfo> getAllCardInfo(){
+           List<CardInfo> taskList = new ArrayList<>();
+   
+           for (int i = 0; i < 100; i++) {
+               CardInfo ci = new CardInfo();
+               taskList.add(ci);
+           }
+   
+           return taskList;
+       }
+   }
+   
+   ```
+
+2. java -Xms10M -Xmx10M -XX:+PrintGC    -XX:+PrintGCDetails -XX:+PrintGCTimeStamps -Xloggc:/usr/gc.log -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/usr/heapdump.hprof   com.lv.jvm.gc.Test
+
+3. 一般是运维团队首先受到报警信息（CPU Memory）
+
+4. top命令观察到问题：内存不断增长 CPU占用率居高不下
+
+5. top -Hp 观察进程中的线程，哪个线程CPU和内存占比高
+
+6. jps定位具体java进程
+   jstack 定位线程状况，重点关注：WAITING BLOCKED
+   eg.
+   waiting on <0x0000000088ca3310> (a java.lang.Object)
+   假如有一个进程中100个线程，很多线程都在waiting on <xx> ，一定要找到是哪个线程持有这把锁
+   怎么找？搜索jstack dump的信息，找<xx> ，看哪个线程持有这把锁RUNNABLE
+
+7. 为什么阿里规范里规定，线程的名称（尤其是线程池）都要写有意义的名称
+   怎么样自定义线程池里的线程名称？（自定义ThreadFactory）
+
+8. jinfo pid 
+
+9. jstat -gc 动态观察gc情况 / 阅读GC日志发现频繁GC / arthas观察 / jconsole/jvisualVM/ Jprofiler（最好用）
+   jstat -gc 4655 500 : 每个500个毫秒打印GC的情况
+   如果面试官问你是怎么定位OOM问题的？如果你回答用图形界面（错误）
+   1：已经上线的系统不用图形界面用什么？（cmdline arthas）
+   2：图形界面到底用在什么地方？测试！测试的时候进行监控！（压测观察）
+
+10. jmap - histo 4655 | head -20，查找有多少对象产生
+
+11. jmap -dump:format=b,file=xxx pid ：
+
+    线上系统，内存特别大，jmap执行期间会对进程产生很大影响，甚至卡顿（电商不适合）
+    1：设定了参数HeapDump，OOM的时候会自动产生堆转储文件
+    2：<font color='red'>很多服务器备份（高可用），停掉这台服务器对其他服务器不影响</font>
+    3：在线定位(一般小点儿公司用不到)
+
+12. java -Xms20M -Xmx20M -XX:+UseParallelGC -XX:+HeapDumpOnOutOfMemoryError com.mashibing.jvm.gc.T15_FullGC_Problem01
+
+13. 使用MAT / jhat /jvisualvm 进行dump文件分析
+     https://www.cnblogs.com/baihuitestsoftware/articles/6406271.html 
+    jhat -J-mx512M xxx.dump
+    http://192.168.17.11:7000
+    拉到最后：找到对应链接
+    可以使用OQL查找特定问题对象
+
+14. 找到代码的问题
+
+
 
 OOM产生的原因多种多样，有些程序未必产生OOM，不断FGC(CPU飙高，但内存回收特别少) （上面案例）
 
@@ -1630,95 +1733,13 @@ OOM产生的原因多种多样，有些程序未必产生OOM，不断FGC(CPU飙�
     解决方案：减少堆空间（太TMlow了）,预留更多内存产生native thread
     JVM内存占物理内存比例 50% - 80%
 
+## CMS调整案例
 
-### GC常用参数
-
-* -Xmn -Xms -Xmx -Xss
-  年轻代 最小堆 最大堆 栈空间
-* -XX:+UseTLAB
-  使用TLAB，默认打开
-* -XX:+PrintTLAB
-  打印TLAB的使用情况
-* -XX:TLABSize
-  设置TLAB大小
-* -XX:+DisableExplictGC
-  System.gc()不管用 ，FGC
-* -XX:+PrintGC
-* -XX:+PrintGCDetails
-* -XX:+PrintHeapAtGC
-* -XX:+PrintGCTimeStamps
-* -XX:+PrintGCApplicationConcurrentTime (低)
-  打印应用程序时间
-* -XX:+PrintGCApplicationStoppedTime （低）
-  打印暂停时长
-* -XX:+PrintReferenceGC （重要性低）
-  记录回收了多少种不同引用类型的引用
-* -verbose:class
-  类加载详细过程
-* -XX:+PrintVMOptions
-* -XX:+PrintFlagsFinal  -XX:+PrintFlagsInitial
-  必须会用
-* -Xloggc:opt/log/gc.log
-* -XX:MaxTenuringThreshold
-  升代年龄，最大值15
-* 锁自旋次数 -XX:PreBlockSpin 热点代码检测参数-XX:CompileThreshold 逃逸分析 标量替换 ... 
-  这些不建议设置
-
-### Parallel常用参数
-
-* -XX:SurvivorRatio
-* -XX:PreTenureSizeThreshold
-  大对象到底多大
-* -XX:MaxTenuringThreshold
-* -XX:+ParallelGCThreads
-  并行收集器的线程数，同样适用于CMS，一般设为和CPU核数相同
-* -XX:+UseAdaptiveSizePolicy
-  自动选择各区大小比例
-
-### CMS常用参数
-
-* -XX:+UseConcMarkSweepGC
-* -XX:ParallelCMSThreads
-  CMS线程数量
-* -XX:CMSInitiatingOccupancyFraction
-  使用多少比例的老年代后开始CMS收集，默认是68%(近似值)，如果频繁发生SerialOld卡顿，应该调小，（频繁CMS回收）
-* -XX:+UseCMSCompactAtFullCollection
-  在FGC时进行压缩
-* -XX:CMSFullGCsBeforeCompaction
-  多少次FGC之后进行压缩
-* -XX:+CMSClassUnloadingEnabled
-* -XX:CMSInitiatingPermOccupancyFraction
-  达到什么比例时进行Perm回收
-* GCTimeRatio
-  设置GC时间占用程序运行时间的百分比
-* -XX:MaxGCPauseMillis
-  停顿时间，是一个建议时间，GC会尝试用各种手段达到这个时间，比如减小年轻代
-
-### G1常用参数
-
-* -XX:+UseG1GC
-* -XX:MaxGCPauseMillis
-  建议值，G1会尝试调整Young区的块数来达到这个值
-* -XX:GCPauseIntervalMillis
-  ？GC的间隔时间
-* -XX:+G1HeapRegionSize
-  分区大小，建议逐渐增大该值，1 2 4 8 16 32。
-  随着size增加，垃圾的存活时间更长，GC间隔更长，但每次GC的时间也会更长
-  ZGC做了改进（动态区块大小）
-* G1NewSizePercent
-  新生代最小比例，默认为5%
-* G1MaxNewSizePercent
-  新生代最大比例，默认为60%
-* GCTimeRatio
-  GC时间建议比例，G1会根据这个值调整堆空间
-* ConcGCThreads
-  线程数量
-* InitiatingHeapOccupancyPercent
-  启动G1的堆空间占用比例
+▪https://www.oracle.com/technical-resources/articles/java/g1gc.html
 
 
 
-#### 问题
+## 问题
 
 1. -XX:MaxTenuringThreshold控制的是什么？
    A: 对象升入老年代的年龄
@@ -1785,7 +1806,11 @@ OOM产生的原因多种多样，有些程序未必产生OOM，不断FGC(CPU飙�
 
 
 
-### 参考资料
+
+
+## 参考资料
+
+## 
 
 1. [https://blogs.oracle.com/](https://blogs.oracle.com/jonthecollector/our-collectors)[jonthecollector](https://blogs.oracle.com/jonthecollector/our-collectors)[/our-collectors](https://blogs.oracle.com/jonthecollector/our-collectors)
 2. https://docs.oracle.com/javase/8/docs/technotes/tools/unix/java.html
