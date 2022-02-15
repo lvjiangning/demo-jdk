@@ -19,6 +19,7 @@ public class MyCallable implements Callable<String> {
         Thread thread=new Thread(futureTask);
         thread.start();
         System.out.println("是否完成："+futureTask.isDone());
+        //get时会阻塞
         System.out.println(futureTask.get());
         System.out.println(futureTask.isDone());
     }
