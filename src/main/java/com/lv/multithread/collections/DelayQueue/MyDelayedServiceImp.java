@@ -36,10 +36,13 @@ public class MyDelayedServiceImp implements MyDelayedService {
     }
 
     private void execute() {
+        System.out.println("开始执行init");
         while (true) {
             //该线程要执行的内容
             try {
+                System.out.println("take 准备获取event。。。");
                 MyDelayedEvent delayed = queue.take();
+                System.out.println("take 获取到event。。。");
                 if (delayed != null) {
                     System.out.println("执行任务,任务执行时当前时间是 {" + TIME_FORMAT.format(delayed.getEndTime()) + "}");
                     executor.execute(new Runnable() {

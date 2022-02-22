@@ -9,8 +9,8 @@ import java.util.concurrent.TimeUnit;
 public class MyDelayedEvent implements Delayed {
     private Task task;
 
-    private Long endTime;
-
+    private Long endTime; //毫秒
+    // endTime 毫秒
     public MyDelayedEvent(Task task, Long endTime) {
         this.task = task;
         this.endTime = endTime;
@@ -18,17 +18,22 @@ public class MyDelayedEvent implements Delayed {
 
     @Override
     public long getDelay(TimeUnit unit) {
-        return unit.convert(endTime, TimeUnit.NANOSECONDS) - unit.convert(System.currentTimeMillis(), TimeUnit.NANOSECONDS);
+        return unit.convert(endTime, TimeUnit.MILLISECONDS) - unit.convert(System.currentTimeMillis(), TimeUnit.MILLISECONDS);
     }
 
+    /**
+     *  compareTo 通过排序决定队列的先后顺序
+     * @param o
+     * @return 延迟时间长的存放在最前面
+     */
     @Override
     public int compareTo(Delayed o) {
         if (this == o)
             return 1;
         if (o == null)
             return -1;
-        long diff = this.getDelay(TimeUnit.NANOSECONDS) - o.getDelay(TimeUnit.NANOSECONDS);
-        return diff < 0 ? -1 : (diff == 0 ? 0 : 1);
+        long diff = this.getDelay(TimeUnit.MILLISECONDS) - o.getDelay(TimeUnit.MILLISECONDS);
+        return diff > 0 ? -1 : (diff == 0 ? 0 : 1);
     }
 
     public Task getTask() {
