@@ -70,14 +70,14 @@ mysql> XA ROLLBACK xid;
 ## 2、备份
 
 ```sql
-# 导出全部数据库 包括mysql自带的库也会导出， -uroot ,root 是用户名
-mysqldump  -uroot -p --all-databases --events > /data/mysql.sql
+# 导出全部数据库 包括mysql自带的库也会导出， -uroot ,root 是用户名，--single-transaction --hex-blob与Bolb等二进制字段有关
+mysqldump  -uroot -p --single-transaction --hex-blob --all-databases --events > /data/mysql.sql
 
 # 导出指定的数据库
-mysqldump -uroot -p --databases rcm_test > /data/mysql_test.sql
+mysqldump -uroot -p  --single-transaction --hex-blob --databases rcm_test > /data/mysql_test.sql
 
 # 导出指定的多个数据库
-mysqldump -uroot -p --databases db1 db2 > /data/mysql.sql
+mysqldump -uroot -p  --single-transaction --hex-blob --databases db1 db2 > /data/mysql.sql
 ```
 
 ## 3、完全关闭MySQL
