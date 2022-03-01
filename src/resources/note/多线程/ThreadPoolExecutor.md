@@ -19,7 +19,7 @@ private static final int RUNNING= -1 << COUNT_BITS;
 private static final int SHUTDOWN =0 << COUNT_BITS;
 // 001 00000000000000000000000000000 拒绝新的任务提交,清空在队列中的任务
 private static final int STOP =1 << COUNT_BITS;
-// 010 00000000000000000000000000000 所有任务都销毁了,workCount=0的时候,线程池的装填在转换为TIDYING是,会执行钩子方法terminated()
+// 010 00000000000000000000000000000 所有任务都销毁了,workCount=0的时候,线程池的装填在转换为TIDYING时,会执行钩子方法terminated()
 private static final int TIDYING=2 << COUNT_BITS;
 // 011 00000000000000000000000000000 terminated() 方法执行完成后,线程池的状态会转为TERMINATED.
 private static final int TERMINATED =3 << COUNT_BITS;
@@ -84,7 +84,7 @@ private final AccessControlContext acc;
 
 ### 提交任务主流程分析
 
-### AbstractExecutorService.submit()
+#### AbstractExecutorService.submit()
 
 ```java
 public <T> Future<T> submit(Callable<T> task) {
@@ -105,14 +105,14 @@ public void execute(Runnable command) {
             throw new NullPointerException();
         int c = ctl.get(); // 获取当前线程池状态及线程数容器
         if (workerCountOf(c) < corePoolSize) {// 判断当前线工作的线程数是否小于配置的核心线程数
-            if (addWorker(command, true))// 如果小于核心线程数就增加worker
+            if (addWorker(command, true))// 如果小于核心线程数就增加worker，并且把command作为当前线程的第一个任务
                 return; // 增加worker成功且worker跑起来了就返回
             c = ctl.get();// 线程池拒绝了增加worker, 重新获取线程池状态
         }
        // worker增加失败,或者当前线程池中线程数超过核心线程数.
         if (isRunning(c) && workQueue.offer(command)) {// 判断当前线程池的状态是不是RUNNING,如果是则将任务加入到阻塞队列, offer是不阻塞的.
             int recheck = ctl.get();// 获取当前线程池状态
-            if (! isRunning(recheck) && remove(command))// 判断当前线程池状态是不是RUNNING状态,不是就从workQueue中删除command任务
+            if (! isRunning(recheck) && remove(command))// 如果线程池已不处于 RUNNING 状态，那么移除已入队的任务，并且执行拒绝策略
                 reject(command);//执行拒绝策略
             else if (workerCountOf(recheck) == 0)//查看当前工作线程的数量
                 addWorker(null, false);//如果当前线程数是0,那么刚刚的任务肯定在阻塞队列里面了,这个时候开启一个没有任务的线程去跑.
@@ -136,7 +136,7 @@ private boolean addWorker(Runnable firstTask, boolean core) {
             
             // Check if queue empty only if necessary.
             // 如果线程池状态是SHUTDOWN、STOP、TIDYING、TERMINATED就不允许提交。
-            // && 后面的特殊情况，线程池的状态是SHUTDOWN并且要要执行的任务为Null并且队列不是空，这种情况下是允许增加一个线程来帮助队列中的任务跑完的，因为shutdown状态下，允许执行完成阻塞队里中的任务
+            // && 后面的特殊情况，线程池的状态是SHUTDOWN并且要执行的任务为Null并且队列不是空，这种情况下是允许增加一个线程来帮助队列中的任务跑完的，因为shutdown状态下，允许执行完成阻塞队里中的任务
             if (rs >= SHUTDOWN &&! (rs == SHUTDOWN && firstTask == null &&! workQueue.isEmpty())) 
                 return false;
 
@@ -702,221 +702,6 @@ public int prestartAllCoreThreads() {
     }
 ```
 
-## FutureTask
-
-### 介绍
-
-FutureTask简单说就是一个任务,他可以被提交,也可以用来获取结果, 获取执行的状态, 也可以被取消.
-
-### 成员变量
-
-```gradle
-     * NEW -> COMPLETING -> NORMAL
-     * NEW -> COMPLETING -> EXCEPTIONAL
-     * NEW ->    ==>     -> CANCELLED
-     * NEW -> INTERRUPTING -> INTERRUPTED
-    // 1个初始态:NEW
-    // 2个中间态:COMPLETING,INTERRUPTING
-    // 4个终止态:NORMAL,EXCEPTIONAL,INTERRUPTED,CANCELLED
-    private volatile int state;
-    private static final int NEW          = 0;//任务的初始状态
-    private static final int COMPLETING   = 1;//正在设置运行的结果
-    private static final int NORMAL       = 2;//任务正常执行完成
-    private static final int EXCEPTIONAL  = 3;//任务执行过程中发生异常
-    private static final int CANCELLED    = 4;//任务被取消
-    private static final int INTERRUPTING = 5;//正在中断运行中的任务
-    private static final int INTERRUPTED  = 6;//任务被中断
-
-    //要执行的任务
-    private Callable<V> callable;
-    //返回的结果或者异常
-    private Object outcome; 
-    //当前执行任务的线程
-    private volatile Thread runner;
-    //Treiber栈,先进后出,线程安全的栈,存储等待任务执行完毕的线程信息 
-    private volatile WaitNode waiters;
-```
-
-### CAS
-
-```java
-//this:当前对象实例
-//偏移量:当前属性相对于this对象实例的对象头的偏移量
-//当前预期状态:NEW
-//将要更新成的值:COMPLETING
-UNSAFE.compareAndSwapInt(this, stateOffset, NEW, COMPLETING)
-```
-
-### 方法分析
-
-### 构造方法
-
-```java
-  public FutureTask(Callable<V> callable) {
-        if (callable == null)
-            throw new NullPointerException();
-        this.callable = callable;//任务赋值
-        this.state = NEW;       //设置当前任务初始状态为new
-    }
-```
-
-### 获取成员变量相对于对象实例的偏移量
-
-```java
-private static final sun.misc.Unsafe UNSAFE;
-//获取偏移量的作用是为了支持UnSafe中原子的更改状值的操作,比如支持下面的大标题 <CAS操作>
-private static final long stateOffset;//state属性偏移量
-private static final long runnerOffset;//runner属性偏移量
-private static final long waitersOffset;//waiter属性偏移量
-static {
-     try {
-       UNSAFE = sun.misc.Unsafe.getUnsafe();
-       Class<?> k = FutureTask.class;
-       //getDeclaredField方法获得某个类的所有声明的字段，即包括public、private和proteced，但是不包括父类的申明字段
-       //UNSAFE.objectFieldOffset获取value字段在对象中的偏移量（其实就是一个字段到对象头部的偏移量，通过这个偏移量可以快速定位字段）这个对象实际上是指对象实例的，引用对象实例在堆中.
-       stateOffset = UNSAFE.objectFieldOffset(k.getDeclaredField("state"));
-       runnerOffset = UNSAFE.objectFieldOffset(k.getDeclaredField("runner"));
-       waitersOffset = UNSAFE.objectFieldOffset(k.getDeclaredField("waiters"));
-     } catch (Exception e) {
-       throw new Error(e);
-     }
- }
-```
-
-### run方法
-
-```java
-public void run() {
-        //判断当前任务的状态是不是初始状态并且当前之前没有线程执行过
-        if (state != NEW ||
-            !UNSAFE.compareAndSwapObject(this, runnerOffset,
-                                         null, Thread.currentThread()))
-            return;
-        try {
-            Callable<V> c = callable;
-            if (c != null && state == NEW) {
-                V result;
-                boolean ran;
-                try {
-                    result = c.call();//这里真正执行业务代码
-                    ran = true;
-                } catch (Throwable ex) {
-                    result = null;
-                    ran = false;
-                    setException(ex);//处理异常
-                }
-                if (ran)
-                    set(result);//处理结果
-            }
-        } finally {
-            runner = null;
-            int s = state;
-            if (s >= INTERRUPTING)//如果是中断中的状态就让出cpu时间等待任务状态变为INTERRUTPTED,因为取消操作是两步,具体看cancel中的分析吧
-                handlePossibleCancellationInterrupt(s);
-        }
-    }
-```
-
-### setException 方法
-
-```java
-protected void setException(Throwable t) {
-   //降低当前任务的状态从new更新成completing,更新成功说明任务已经执行完成,进行结果复制
-    if (UNSAFE.compareAndSwapInt(this, stateOffset, NEW, COMPLETING)) {
-        outcome = t;//设置返回结果
-        UNSAFE.putOrderedInt(this, stateOffset, EXCEPTIONAL); // 将任务的状态设置为终态,这里不用putIntVolatile的原因是因为当前任务的state字段就是被volatile修饰了.
-        finishCompletion();//任务执行完成最后收尾
-    }
-}
-```
-
-### set 方法
-
-```java
-protected void set(V v) {
-    if (UNSAFE.compareAndSwapInt(this, stateOffset, NEW, COMPLETING)) {
-        outcome = v;//设置返回结果
-        UNSAFE.putOrderedInt(this, stateOffset, NORMAL); // 设置当前任务的最终状态为NORMAL
-        finishCompletion();//任务执行完成最后收尾
-    }
-}
-```
-
-### finishCompletion
-
-资源释放 比较简单
-
-```java
-private void finishCompletion() {
-        // assert state > COMPLETING;
-        for (WaitNode q; (q = waiters) != null;) {//死循环唤醒等待节点的线程，并回收资源
-            if (UNSAFE.compareAndSwapObject(this, waitersOffset, q, null)) {
-                for (;;) {
-                    Thread t = q.thread;
-                    if (t != null) {
-                        q.thread = null;
-                        LockSupport.unpark(t);
-                    }
-                    WaitNode next = q.next;
-                    if (next == null)
-                        break;
-                    q.next = null; // unlink to help gc
-                    q = next;
-                }
-                break;
-            }
-        }
-        done();
-        callable = null;        // to reduce footprint
-    }
-```
-
-### handlePossibleCancellationInterrupt
-
-```java
-//这个方法就很简单了,就是说如果是中断中的状态,就让出CPU时间,此处为死循环,等待最终状态变为已中断的状态.
-private void handlePossibleCancellationInterrupt(int s) {
-    if (s == INTERRUPTING)
-        while (state == INTERRUPTING)
-            Thread.yield(); //让出CPU时间等待任务完成
-
-}
-```
-
-### cancel
-
-```java
-public boolean cancel(boolean mayInterruptIfRunning) {
-    if (!(state == NEW &&
-          UNSAFE.compareAndSwapInt(this, stateOffset, NEW,
-              mayInterruptIfRunning ? INTERRUPTING : CANCELLED)))//设置任务状态为中断中或者取消
-        return false;//如果状态不是new或者设置状态失败,返回false说明取消失败
-    try {    // in case call to interrupt throws exception
-        if (mayInterruptIfRunning) {
-            try {
-                Thread t = runner;
-                if (t != null)
-                    t.interrupt();//如果是中断的方式,调用线程的中断方法.
-            } finally { // final state
-                UNSAFE.putOrderedInt(this, stateOffset, INTERRUPTED);//并设置当前任务的最终状态为INTERRUPTED
-            }
-        }
-    } finally {
-        finishCompletion();//收尾工作,上文介绍过
-    }
-    return true;
-}
-```
-
-### 整体执行流程
-
-1. 将当前线程设置为runner
-2. 判断任务的状态是NEW则执行任务
-3. 任务执行成功,outcome赋返回值,任务执行失败,outcome赋异常,给outcome赋值之前会先将状态设置为COMPLETING.
-4. outcome赋值完成后,设置最终状态NORMAL 或者 EXCEPTIONAL
-5. 唤醒waiters中所有的线程,并做资源的释放
-6. 检查是否有中断被遗漏, 如果有, 等待中断状态完成
-
 ## 个人观点输出
 
 ### 1)下面的线程池定义会有什么问题?
@@ -991,3 +776,10 @@ public class MXThreadPool {
 ### 5）为啥workers用hashSet+锁实现, 而不是使用线程安全的数据结构 ？
 
 主要是因为这里有些复合的操作，比如说将worker添加到workers后，我们还需要判断是否需要更新largestPoolSize等，workers只在获取到mainLock的情况下才会进行读写，另外这里的mainLock也用于在中断线程的时候串行执行，否则如果不加锁的话，可能会造成并发去中断线程，引起不必要的中断风暴（大量线程去中断，大量阻塞在synchronized，进行锁竞争CPU飚高）。
+
+
+
+![image-20220224214300239](..\image\image-20220224214300239.png)
+
+![image-20220224215326544](..\image\image-20220224215326544.png)
+
