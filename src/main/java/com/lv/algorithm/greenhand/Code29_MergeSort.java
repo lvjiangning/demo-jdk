@@ -72,36 +72,36 @@ public class Code29_MergeSort {
 		}
 		//开始步长为1
 		int step = 1;
-		int N = arr.length; //边界为n，
-		while (step < N) { // 步长大于n就退出循环
-			int L = 0; //左边开始下标为0
-			while (L < N) { //左边下标下标不能超过N
+		int N = arr.length; //数组长度，
+		while (step < N) { // 步长大于数组长度则退出循环
+			int L = 0; //每次重设步长进行合并时 左下标都为0
+			while (L < N) { //左下标不能超过数组长度，禁止数组越界
 				int M = 0; //中间位
-				if (N - L >= step) {
-					M = L + step - 1;
+				if (N - L >= step) {  // 如果左下标开始位至结束位够step个数，则正常取中间位
+					M = L + step - 1; //取中间位
 				} else {
-					M = N - 1;
+					M = N - 1;// 如果左下标开始位至结束位不够step个数，直接取最后一位为中间位
 				}
-				if (M == N - 1) {
+				if (M == N - 1) { //如果中间位等于最后一位，则不需要再进行合并，退出循环
 					break;
 				}
-				int R = 0;
-				if (N - 1 - M >= step) {
-					R = M + step;
+				int R = 0;  //每轮循环 重新计算右边下标位
+				if (N - 1 - M >= step) { //如果结束位至中间位还有step的位数，够m-r
+					R = M + step; //正常取右边界
 				} else {
-					R = N - 1;
+					R = N - 1; //中间位至结束位 凑不齐step位,则右下表为r
 				}
-				merge(arr, L, M, R);
-				if (R == N - 1) {
+				merge(arr, L, M, R); //合并
+				if (R == N - 1) { //如果整个数组已经是最后一轮，则退出循环
 					break;
 				} else {
-					L = R + 1;
+					L = R + 1; // 进行下一轮
 				}
 			}
 			if (step > N / 2) {
 				break;
 			}
-			step *= 2;
+			step *= 2; //重设步长  （1 1）【2,2】【4,4】  【8,8】
 		}
 
 	}

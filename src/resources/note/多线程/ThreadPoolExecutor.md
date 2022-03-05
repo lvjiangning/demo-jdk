@@ -248,10 +248,8 @@ final void runWorker(Worker w) {
                 // 两种情况:
                 //1)如果当前线程池的状态是>=Stop的，并且当前线程没有被中断，那么就要执行中断。
                 //2)或者当前线程目前是已中断的状态并且线程池的状态也是>=Stop的（注意Thread.interrupted是会擦除中断标识符的），那么因为中断标识符已经被擦除了，那么!wt.isInterrupted()一定返回true，这个时候还是要将当前线程中断。第二次执行runStateAtLeast(ctl.get(), STOP)相当于一个二次检查。
-                if ((runStateAtLeast(ctl.get(), STOP) ||
-                     (Thread.interrupted() &&
-                      runStateAtLeast(ctl.get(), STOP))) &&
-                    !wt.isInterrupted())
+                if ((runStateAtLeast(ctl.get(), STOP) ||(Thread.interrupted() && runStateAtLeast(ctl.get(), STOP))) 
+                    && !wt.isInterrupted())
                     wt.interrupt();//中断当前线程
                 try {
                     beforeExecute(wt, task);//前置操作，空方法，可以业务自己实现
@@ -287,7 +285,7 @@ final void runWorker(Worker w) {
 
 要注意的是调用getTask方法的地方是一个while死循环, 只要getTask有返回值,那么就不会退出循环.
 
-退出循环就说明改销毁超过核心线程数的那部分线程了.
+退出循环就说明该销毁超过核心线程数的那部分线程了.
 
 ```java
 private Runnable getTask() {
@@ -340,7 +338,7 @@ private Runnable getTask() {
 
 ### processWorkerExit
 
-任务异常退出, 则在加个worker回来, 当前任务是丢了的.
+任务异常退出, 则再加个worker回来, 当前任务是丢了的.
 
 任务不是异常退出:
 
@@ -348,7 +346,7 @@ private Runnable getTask() {
 
 \2) 如果核心线程不允许超时,就得保证当前线程池中线程数量>=核心线程数,如果当前线程池中线程数量<核心线程数,依然要增加一个worker,执行addWorker.
 
-```csharp
+```java
 private void processWorkerExit(Worker w, boolean completedAbruptly) {
     //任务是不是突然完成啦,完成就将工作线程数量-1
     //如果completedAbruptly为true，则说明线程执行时出现异常，需要将workerCount数量减一
@@ -361,7 +359,7 @@ private void processWorkerExit(Worker w, boolean completedAbruptly) {
     try {
         //更新已完成任务的数量的统计项
         completedTaskCount += w.completedTasks;
-        //从worker中移除任务
+        //从worker中移除work
         workers.remove(w);
     } finally {
         mainLock.unlock();
@@ -415,7 +413,7 @@ final void tryTerminate() {
                 (runStateOf(c) == SHUTDOWN && !workQueue.isEmpty()))
             return;
         //工作线程数量不等于0，中断一个空闲的工作线程并返回
-===>(1   //这个时候线程池一定是STOP的状态或者SHUTDOW并队列不为空,这两种情况要么就是尝试种植因此这个时候尝试中断一个空闲worker
+===>(1   //这个时候线程池一定是STOP的状态或者SHUTDOW并队列不为空,这两种情况要么就是尝试终止因此这个时候尝试中断一个空闲worker
         if (workerCountOf(c) != 0) {
             interruptIdleWorkers(ONLY_ONE);
             return;
@@ -520,7 +518,15 @@ threadPoolExecutor.getQueue(): 返回此执行程序使用的任务队列
 
 ### 拒绝策略
 
-AbortPolicy、CallerRunsPolicy、DiscardPolicy、DiscardOldestPolicy
+
+
+AbortPolicy、抛RejectedExecutionException异常（默认的处理方式）
+
+CallerRunsPolicy、 调用execute()方法拒绝任务
+
+DiscardPolicy、悄悄地丢弃拒绝的任务
+
+DiscardOldestPolicy 丢弃最老的未处理的请求，然后重新执行execute()方法
 
 ### 拒绝策略建议自己实现
 
@@ -737,7 +743,7 @@ public class MXThreadPool {
 
 先看图(从右往左看):
 
-![img](https://segmentfault.com/img/remote/1460000021052378)
+<img src="https://segmentfault.com/img/remote/1460000021052378" alt="img" style="zoom:150%;" />
 
 图上描述的是当处于业务高峰的时候, 此时阻塞队列是满的, 线程总量也达到最大线程数的阈值,
 
@@ -779,7 +785,7 @@ public class MXThreadPool {
 
 
 
-![image-20220224214300239](..\image\image-20220224214300239.png)
 
-![image-20220224215326544](..\image\image-20220224215326544.png)
+
+
 
