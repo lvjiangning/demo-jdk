@@ -4,7 +4,7 @@
 
 <img src=".\image\java-thread-x-juc-futuretask-1.png" alt="img" align="left" style="zoom:100%;" />
 
-可以看到,FutureTask实现了RunnableFuture接口，则RunnableFuture接口继承了Runnable接口和Future接口，所以FutureTask既能当做一个Runnable直接被Thread执行，也能作为Future用来得到Callable的计算结果。
+可以看到,FutureTask实现了RunnableFuture接口，则RunnableFuture接口继承了Runnable接口和Future接口，所以FutureTask既能当做一个Runnable直接被Thread执行，也能作为Future用来得到Callable的计算结果。FutureTask代表了一个异步执行任务
 
 ## FutureTask源码解析
 
