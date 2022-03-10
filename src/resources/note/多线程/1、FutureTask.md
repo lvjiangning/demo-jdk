@@ -138,7 +138,7 @@ private static final int INTERRUPTED  = 6;
 
 各个状态之间的可能转换关系如下图所示:
 
-<img src="https://pdai-1257820000.cos.ap-beijing.myqcloud.com/pdai.tech/public/_images/thread/java-thread-x-juc-futuretask-2.png" alt="img" style="zoom:100%;" align="left" />
+![img](.\1、FutureTask.assets\java-thread-x-juc-futuretask-2.png)
 
 ### 构造函数
 

@@ -91,6 +91,10 @@ class Task implements Runnable {
 
 ## ScheduledThreadPoolExecutor的实现
 
+### ScheduledThreadPoolExecutor属性
+
+
+
 ### ScheduledThreadPoolExecutor的类结构
 
 看下ScheduledThreadPoolExecutor内部的类图：

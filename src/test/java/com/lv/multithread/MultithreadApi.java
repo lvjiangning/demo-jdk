@@ -29,4 +29,13 @@ public class MultithreadApi {
         stringStringMap.put("2","2"); //直接抛异常
 
     }
+
+    @Test
+    public void test2(){
+      int COUNT_BITS = Integer.SIZE - 3;
+        System.out.println(  COUNT_BITS);
+
+        System.out.println( -1 << 29);
+    }
+
 }
