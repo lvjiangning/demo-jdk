@@ -95,6 +95,32 @@ class Task implements Runnable {
 
 
 
+```java
+
+    /**
+     *  shutdown 后继续现有的定期任务
+     */
+    private volatile boolean continueExistingPeriodicTasksAfterShutdown;
+
+    /**
+     * shutdown 后继续执行现有的延迟任务
+     */
+    private volatile boolean executeExistingDelayedTasksAfterShutdown = true;
+
+    /**
+     * True if ScheduledFutureTask.cancel should remove from queue
+     */
+    private volatile boolean removeOnCancel = false;
+
+    /**
+     * Sequence number to break scheduling ties, and in turn to
+     * guarantee FIFO order among tied entries.
+     */
+    private static final AtomicLong sequencer = new AtomicLong();
+```
+
+
+
 ### ScheduledThreadPoolExecutor的类结构
 
 看下ScheduledThreadPoolExecutor内部的类图：
@@ -109,11 +135,16 @@ ScheduledThreadPoolExecutor继承自ThreadPoolExecutor，实现了ScheduledExecu
 
 ### ScheduledThreadPoolExecutor的构造方法
 
-ScheduledThreadPoolExecutor有3中构造方法：
+ScheduledThreadPoolExecutor的构造方法：
 
 
 
 ```java
+ public ScheduledThreadPoolExecutor(int corePoolSize) {
+        super(corePoolSize, Integer.MAX_VALUE, 0, NANOSECONDS,
+              new DelayedWorkQueue());
+    }
+
 public ScheduledThreadPoolExecutor(int corePoolSize,
                                     ThreadFactory threadFactory) {
     super(corePoolSize, Integer.MAX_VALUE, 0, NANOSECONDS,
@@ -145,27 +176,17 @@ public ScheduledThreadPoolExecutor(int corePoolSize,
 
 
 ```java
-public ScheduledFuture<?> schedule(Runnable command,
-                                   long delay,
-                                   TimeUnit unit) {
-    if (command == null || unit == null)
-        throw new NullPointerException();
-    RunnableScheduledFuture<?> t = decorateTask(command,
-        new ScheduledFutureTask<Void>(command, null,
-                                      triggerTime(delay, unit)));
+public ScheduledFuture<?> schedule(Runnable command,long delay,TimeUnit unit) {
+    if (command == null || unit == null)   throw new NullPointerException();
+    RunnableScheduledFuture<?> t = decorateTask(command,new ScheduledFutureTask<Void>(command, null,triggerTime(delay, unit)));
     delayedExecute(t);
     return t;
 }
 
 
-public <V> ScheduledFuture<V> schedule(Callable<V> callable,
-                                       long delay,
-                                       TimeUnit unit) {
-    if (callable == null || unit == null)
-        throw new NullPointerException();
-    RunnableScheduledFuture<V> t = decorateTask(callable,
-        new ScheduledFutureTask<V>(callable,
-                                   triggerTime(delay, unit)));
+public <V> ScheduledFuture<V> schedule(Callable<V> callable,long delay,TimeUnit unit) {
+    if (callable == null || unit == null) throw new NullPointerException();
+    RunnableScheduledFuture<V> t = decorateTask(callable, new ScheduledFutureTask<V>(callable,triggerTime(delay, unit)));
     delayedExecute(t);
     return t;
 }
@@ -207,12 +228,12 @@ public ScheduledFuture<?> scheduleAtFixedRate(Runnable command,
                                               long initialDelay,
                                               long period,
                                               TimeUnit unit) {
-    if (command == null || unit == null)
-        throw new NullPointerException();
-    if (period <= 0)
-        throw new IllegalArgumentException();
-    ScheduledFutureTask<Void> sft =
-        new ScheduledFutureTask<Void>(command,
+    
+    if (command == null || unit == null) throw new NullPointerException();
+    
+    if (period <= 0) throw new IllegalArgumentException();
+    
+    ScheduledFutureTask<Void> sft = new ScheduledFutureTask<Void>(command,
                                       null,
                                       triggerTime(initialDelay, unit),
                                       unit.toNanos(period));
@@ -238,12 +259,11 @@ public ScheduledFuture<?> scheduleWithFixedDelay(Runnable command,
                                                  long initialDelay,
                                                  long delay 在任务完成多少时间后，开始执行新任务,
                                                  TimeUnit unit) {
-    if (command == null || unit == null)
-        throw new NullPointerException();
-    if (delay <= 0)
-        throw new IllegalArgumentException();
-    ScheduledFutureTask<Void> sft =
-        new ScheduledFutureTask<Void>(command,
+    if (command == null || unit == null) throw new NullPointerException();
+    
+    if (delay <= 0) throw new IllegalArgumentException();
+    
+    ScheduledFutureTask<Void> sft = new ScheduledFutureTask<Void>(command,
                                       null,
                                       triggerTime(initialDelay, unit),
                                       unit.toNanos(-delay));

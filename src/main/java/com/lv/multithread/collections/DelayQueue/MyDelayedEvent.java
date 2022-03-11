@@ -18,6 +18,8 @@ public class MyDelayedEvent implements Delayed {
 
     @Override
     public long getDelay(TimeUnit unit) {
+
+
         return unit.convert(endTime, TimeUnit.MILLISECONDS) - unit.convert(System.currentTimeMillis(), TimeUnit.MILLISECONDS);
     }
 
@@ -33,7 +35,7 @@ public class MyDelayedEvent implements Delayed {
         if (o == null)
             return -1;
         long diff = this.getDelay(TimeUnit.MILLISECONDS) - o.getDelay(TimeUnit.MILLISECONDS);
-        return diff > 0 ? -1 : (diff == 0 ? 0 : 1);
+        return diff > 0 ? 1 : (diff == 0 ? 0 : -1);
     }
 
     public Task getTask() {
