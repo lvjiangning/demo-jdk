@@ -1,4 +1,4 @@
-package com.lv.algorithm.system.class05_QuickSort;
+package com.lv.algorithm.system.com.lv.algorithm.system.class05_QuickSort;
 
 import java.util.ArrayList;
 import java.util.Comparator;

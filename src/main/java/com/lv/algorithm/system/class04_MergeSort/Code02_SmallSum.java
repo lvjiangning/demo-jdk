@@ -1,4 +1,4 @@
-package com.lv.algorithm.system.class04_MergeSort;
+package com.lv.algorithm.system.com.lv.algorithm.system.class04_MergeSort;
 
 /**
  * 求小和

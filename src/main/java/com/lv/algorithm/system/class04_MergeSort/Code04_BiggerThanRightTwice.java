@@ -1,4 +1,4 @@
-package com.lv.algorithm.system.class04_MergeSort;
+package com.lv.algorithm.system.com.lv.algorithm.system.class04_MergeSort;
 
 //  本题测试链接 : https://leetcode.com/problems/reverse-pairs/
 public class Code04_BiggerThanRightTwice {

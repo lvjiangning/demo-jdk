@@ -1,4 +1,4 @@
-package com.lv.algorithm.system.class02_DataStructure;
+package com.lv.algorithm.system.com.lv.algorithm.system.class02_DataStructure;
 
 /**
  * 单链表通过value删除指定node

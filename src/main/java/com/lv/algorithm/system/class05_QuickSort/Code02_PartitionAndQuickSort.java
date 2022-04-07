@@ -1,4 +1,4 @@
-package com.lv.algorithm.system.class05_QuickSort;
+package com.lv.algorithm.system.com.lv.algorithm.system.class05_QuickSort;
 
 public class Code02_PartitionAndQuickSort {
 

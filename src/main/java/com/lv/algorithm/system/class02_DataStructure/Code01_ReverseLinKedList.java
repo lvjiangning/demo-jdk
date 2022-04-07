@@ -1,4 +1,4 @@
-package com.lv.algorithm.system.class02_DataStructure;
+package com.lv.algorithm.system.com.lv.algorithm.system.class02_DataStructure;
 
 import cn.hutool.core.collection.CollUtil;
 
