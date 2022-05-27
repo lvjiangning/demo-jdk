@@ -1,4 +1,4 @@
-package com.lv.algorithm.system.com.lv.algorithm.system.class04_MergeSort;
+package com.lv.algorithm.system.class04_MergeSort;
 
 // 这道题直接在leetcode测评：
 // https://leetcode.com/problems/count-of-range-sum/

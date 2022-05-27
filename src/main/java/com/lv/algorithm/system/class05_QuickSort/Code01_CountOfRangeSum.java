@@ -1,4 +1,4 @@
-package com.lv.algorithm.system.com.lv.algorithm.system.class05_QuickSort;
+package com.lv.algorithm.system.class05_QuickSort;
 
 // 这道题直接在leetcode测评：
 // https://leetcode.com/problems/count-of-range-sum/

@@ -5,10 +5,9 @@
 ### AQS原理
 
 1. Abstract : 因为它并不知道怎么上锁。模板方法设计模式即可，暴露出上锁逻辑
-2. Queue：线程阻塞队列
+2. Queue：线程阻塞队列，完成抢不到锁的线程排队
 3. Synchronizer：同步
 4. CAS+state 完成多线程抢锁逻辑
-5. Queue 完成抢不到锁的线程排队
 
 #### acquire方法
 

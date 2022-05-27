@@ -1,4 +1,4 @@
-package com.lv.algorithm.system.com.lv.algorithm.system.class02_DataStructure;
+package com.lv.algorithm.system.class02_DataStructure;
 
 /**
  * 环形队列

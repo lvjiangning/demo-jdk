@@ -1,4 +1,4 @@
-package com.lv.algorithm.system.com.lv.algorithm.system;
+package com.lv.algorithm.system;
 
 /**
  * @author： lvjiangning
